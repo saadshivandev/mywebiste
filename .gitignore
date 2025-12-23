@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+vendor/
+composer.lock
+package-lock.json
+
+# Environment files
+.env
+.env.backup
+.env.production
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build files
+dist/
+build/
+backend/public/hot
+backend/public/storage
+backend/storage/*.key
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/framework/cache/*
+backend/storage/logs/*
+!backend/storage/framework/sessions/.gitignore
+!backend/storage/framework/views/.gitignore
+!backend/storage/framework/cache/.gitignore
+!backend/storage/logs/.gitignore
+!backend/storage/app/.gitignore
+!backend/storage/app/public/.gitignore
+!backend/storage/app/private/.gitignore
+
+# Uploaded files (keep directory structure but ignore files)
+backend/storage/app/public/projects/*
+backend/storage/app/public/avatars/*
+backend/storage/app/public/resumes/*
+!backend/storage/app/public/projects/.gitignore
+!backend/storage/app/public/avatars/.gitignore
+!backend/storage/app/public/resumes/.gitignore
+
+# Cache
+backend/bootstrap/cache/*
+!backend/bootstrap/cache/.gitignore
+
+# Testing
+.phpunit.result.cache
+coverage/
+
+# Temporary files
+*.log
+*.tmp
+temp_*.json
+backend/-s
+
+# Database
+*.sqlite
+*.sqlite-journal
+
