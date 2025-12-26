@@ -24,8 +24,13 @@ class ContactMessageController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'service_type' => ['nullable', 'in:frontend,backend,fullstack'],
             'subject' => ['nullable', 'string', 'max:255'],
-            'message' => ['required', 'string'],
+            'message' => ['required', 'string', 'max:5000', 'min:10'],
         ]);
+
+        // Sanitize inputs to prevent XSS
+        $validated['name'] = htmlspecialchars(strip_tags($validated['name']), ENT_QUOTES, 'UTF-8');
+        $validated['subject'] = isset($validated['subject']) ? htmlspecialchars(strip_tags($validated['subject']), ENT_QUOTES, 'UTF-8') : null;
+        $validated['message'] = htmlspecialchars(strip_tags($validated['message']), ENT_QUOTES, 'UTF-8');
 
         $contact = $this->contactService->store($validated);
 

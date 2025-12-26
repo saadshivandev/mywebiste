@@ -1,7 +1,7 @@
 <template>
   <header class="sticky top-0 z-50 border-b border-slate-800/60 bg-surface/80 backdrop-blur-xl">
     <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-      <a href="#home" class="text-lg font-semibold tracking-tight transition-opacity hover:opacity-80">
+      <a href="#" @click.prevent="handleLogoClick" class="text-lg font-semibold tracking-tight transition-opacity hover:opacity-80 cursor-pointer">
         <span class="text-accent">Saad Shivan</span>
         <span class="ml-1 text-slate-300">Tech</span>
       </a>
@@ -11,16 +11,17 @@
         <ul class="flex gap-8 text-sm text-slate-300">
           <li v-for="item in navItems" :key="item.id">
             <a 
-              :href="`#${item.id}`" 
-              class="relative py-2 transition-colors hover:text-accent" 
+              href="#"
+              @click.prevent="navigateTo(item.path)"
+              class="relative py-2 transition-colors hover:text-accent cursor-pointer" 
               :class="{ 
-                'text-accent': activeSection === item.id || item.id === 'home',
+                'text-accent': isActiveSection(item),
                 'bg-white text-black rounded-full px-4 py-2 font-semibold hover:bg-transparent hover:text-slate-300': item.id === 'contact'
               }"
             >
               {{ item.label }}
               <span 
-                v-if="activeSection === item.id" 
+                v-if="isActiveSection(item)" 
                 class="absolute bottom-0 left-0 h-0.5 w-full bg-accent"
               ></span>
             </a>
@@ -60,11 +61,11 @@
       <ul class="flex flex-col gap-1 px-4 py-4">
         <li v-for="item in navItems" :key="item.id">
           <a
-            :href="`#${item.id}`"
-            @click="$emit('close-mobile-menu')"
-            class="block rounded-lg px-4 py-3 text-slate-300 transition-colors hover:bg-slate-800/50 hover:text-accent"
+            href="#"
+            @click.prevent="navigateTo(item.path, true)"
+            class="block rounded-lg px-4 py-3 text-slate-300 transition-colors hover:bg-slate-800/50 hover:text-accent cursor-pointer"
             :class="{ 
-              'bg-accent/10 text-accent': (activeSection === item.id || item.id === 'home') && item.id !== 'contact',
+              'bg-accent/10 text-accent': isActiveSection(item) && item.id !== 'contact',
               'bg-white text-black font-semibold hover:bg-transparent hover:text-slate-300': item.id === 'contact'
             }"
           >
@@ -90,9 +91,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
-defineProps({
+const props = defineProps({
   activeSection: {
     type: String,
     default: 'home'
@@ -103,15 +105,74 @@ defineProps({
   }
 });
 
-defineEmits(['toggle-mobile-menu', 'close-mobile-menu']);
+const emit = defineEmits(['toggle-mobile-menu', 'close-mobile-menu']);
+
+const router = useRouter();
+const route = useRoute();
 
 const navItems = [
-  { id: 'home', label: 'Home' },
-  { id: 'about', label: 'About me' },
-  { id: 'services', label: 'Services' },
-  { id: 'projects', label: 'Portfolio' },
-  { id: 'contact', label: 'Contact me' }
+  { id: 'home', label: 'Home', path: '/' },
+  { id: 'about', label: 'About me', path: '/about' },
+  { id: 'services', label: 'Services', path: '/services' },
+  { id: 'projects', label: 'Portfolio', path: '/projects' },
+  { id: 'contact', label: 'Contact me', path: '/contact' }
 ];
+
+// Handle logo click
+const handleLogoClick = () => {
+  if (route.path !== '/') {
+    router.push('/');
+  } else {
+    // If already on home, scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+};
+
+// Navigate to a route
+const navigateTo = (path, closeMobile = false) => {
+  if (closeMobile) {
+    emit('close-mobile-menu');
+  }
+  
+  // For section navigation, scroll directly without changing URL
+  if (path === '/' || path === '/home') {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    const sectionId = path.replace('/', '');
+    const element = document.getElementById(sectionId);
+    if (element) {
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth'
+      });
+    }
+  }
+  
+  // Update the URL without triggering router scroll
+  if (route.path !== path) {
+    router.push(path).catch(err => {
+      if (err.name !== 'NavigationDuplicated') {
+        console.error('Navigation error:', err);
+      }
+    });
+  }
+};
+
+// Check if a navigation item is currently active
+function isActiveSection(item) {
+  // Check if route matches exactly
+  if (item.path === '/' && route.path === '/') {
+    return props.activeSection === 'home' || props.activeSection === '';
+  }
+  if (route.path === item.path) {
+    return true;
+  }
+  // Also check activeSection prop for scroll-based highlighting
+  return props.activeSection === item.id;
+}
 
 // Check if admin is logged in
 const isAdminLoggedIn = ref(false);

@@ -25,7 +25,7 @@ class ContactAutoReply extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Thank you for reaching out, {$this->contact->name}!",
+            subject: "Thank you for reaching out, {$this->contact->name}! / Bedankt voor uw bericht!",
         );
     }
 

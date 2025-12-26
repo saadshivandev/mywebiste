@@ -17,8 +17,17 @@ return Application::configure(basePath: dirname(__DIR__))
         
         $middleware->alias([
             'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
+            'security.headers' => \App\Http\Middleware\SecurityHeaders::class,
         ]);
+        
+        // Add security headers to all responses
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Use custom exception handler for user-friendly error messages
+        $exceptions->render(function (Throwable $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return app(\App\Exceptions\Handler::class)->render($request, $e);
+            }
+        });
     })->create();

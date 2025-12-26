@@ -10,9 +10,11 @@ class ServiceController extends Controller
 {
     public function index()
     {
-        $services = Service::query()
-            ->orderBy('order')
-            ->get();
+        $services = cache()->remember('services_all', 300, function () {
+            return Service::query()
+                ->orderBy('order')
+                ->get();
+        });
 
         return response()->json($services)->withHeaders([
             'Cache-Control' => 'public, max-age=300', // Cache for 5 minutes
@@ -30,6 +32,9 @@ class ServiceController extends Controller
         ]);
 
         $service = Service::create($data);
+        
+        // Clear cache when new service is added
+        cache()->forget('services_all');
 
         return response()->json($service, 201);
     }
@@ -45,6 +50,9 @@ class ServiceController extends Controller
         ]);
 
         $service->update($data);
+        
+        // Clear cache when service is updated
+        cache()->forget('services_all');
 
         return response()->json($service->fresh());
     }
@@ -52,6 +60,9 @@ class ServiceController extends Controller
     public function destroy(Service $service)
     {
         $service->delete();
+        
+        // Clear cache when service is deleted
+        cache()->forget('services_all');
 
         return response()->json(null, 204);
     }

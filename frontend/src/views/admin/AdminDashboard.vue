@@ -596,17 +596,10 @@
             <div class="md:col-span-2">
               <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-300">Project Images</label>
               
-              <!-- Debug: Show image count and data -->
-              <div class="mb-2 rounded bg-slate-800/50 p-2 text-xs text-slate-400">
-                <div>Images count: {{ projectForm.images?.length || 0 }}</div>
-                <div>Is array: {{ Array.isArray(projectForm.images) }}</div>
-                <div v-if="projectForm.images && projectForm.images.length > 0">First URL: {{ projectForm.images[0] }}</div>
-              </div>
-              
               <!-- Uploaded Images Display -->
               <div v-if="projectForm.images && Array.isArray(projectForm.images) && projectForm.images.length > 0" class="mb-3 grid grid-cols-3 gap-3">
                 <div v-for="(imageUrl, index) in projectForm.images" :key="`img-${index}-${imageUrl}`" class="group relative aspect-video overflow-hidden rounded-lg border border-slate-700">
-                  <img :src="imageUrl" :alt="`Project image ${index + 1}`" class="h-full w-full object-cover" @error="console.error('Image failed to load:', imageUrl)">
+                  <img :src="imageUrl" :alt="`Project image ${index + 1}`" class="h-full w-full object-cover">
                   <button
                     type="button"
                     @click="removeProjectImage(index)"
@@ -1061,8 +1054,6 @@ async function saveProject() {
       data.images = data.images ? [data.images] : [];
     }
     
-    console.log('Saving project with data:', data);
-    
     if (editingProject.value) {
       await apiPut(`/admin/projects/${editingProject.value.id}`, data);
     } else {
@@ -1142,7 +1133,6 @@ async function uploadProjectImages(event) {
     }
 
     const data = await response.json();
-    console.log('Upload response:', data);
     if (data.urls && Array.isArray(data.urls)) {
       // Ensure images is always an array and trigger Vue reactivity
       const currentImages = Array.isArray(projectForm.images) ? [...projectForm.images] : [];
@@ -1153,15 +1143,7 @@ async function uploadProjectImages(event) {
       
       // Force Vue to update
       await nextTick();
-      
-      console.log('Current images before:', currentImages);
-      console.log('New URLs from server:', data.urls);
-      console.log('Updated projectForm.images:', projectForm.images);
-      console.log('Is array?', Array.isArray(projectForm.images));
-      console.log('Length:', projectForm.images?.length);
-      console.log('Full projectForm:', JSON.parse(JSON.stringify(projectForm)));
     } else {
-      console.error('Invalid response:', data);
       throw new Error('Invalid response from server');
     }
   } catch (error) {

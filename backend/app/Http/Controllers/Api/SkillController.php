@@ -10,15 +10,15 @@ class SkillController extends Controller
 {
     public function index()
     {
-        $skills = Skill::query()
+        $skills = cache()->remember('skills_all', 300, function () {
+            return Skill::query()
             ->orderBy('order')
-            ->orderBy('name')
+                ->orderBy('name')
             ->get();
+        });
 
         return response()->json($skills)->withHeaders([
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'Pragma' => 'no-cache',
-            'Expires' => '0',
+            'Cache-Control' => 'public, max-age=300', // Cache for 5 minutes
         ]);
     }
 
@@ -32,6 +32,9 @@ class SkillController extends Controller
         ]);
 
         $skill = Skill::create($data);
+        
+        // Clear cache when new skill is added
+        cache()->forget('skills_all');
 
         return response()->json($skill, 201);
     }
@@ -46,6 +49,9 @@ class SkillController extends Controller
         ]);
 
         $skill->update($data);
+        
+        // Clear cache when skill is updated
+        cache()->forget('skills_all');
 
         return response()->json($skill->fresh());
     }
@@ -53,6 +59,9 @@ class SkillController extends Controller
     public function destroy(Skill $skill)
     {
         $skill->delete();
+        
+        // Clear cache when skill is deleted
+        cache()->forget('skills_all');
 
         return response()->json(null, 204);
     }

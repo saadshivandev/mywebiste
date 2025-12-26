@@ -13,23 +13,28 @@ class ProjectController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Project::query()->orderBy('order');
+        // Use cache key based on request parameters
+        $cacheKey = 'projects_' . md5($request->getQueryString());
+        
+        $projects = cache()->remember($cacheKey, 300, function () use ($request) {
+            $query = Project::query()->orderBy('order');
 
-        // Filter by category if provided
-        if ($request->has('category') && in_array($request->category, ['frontend', 'backend', 'fullstack'])) {
-            $query->where('category', $request->category);
-        }
+            // Filter by category if provided
+            if ($request->has('category') && in_array($request->category, ['frontend', 'backend', 'fullstack'])) {
+                $query->where('category', $request->category);
+            }
 
-        // Paginate if page parameter is present
-        if ($request->has('page')) {
-            $perPage = $request->input('per_page', 6);
-            return response()->json($query->paginate($perPage))->withHeaders([
-                'Cache-Control' => 'public, max-age=300', // Cache for 5 minutes
-            ]);
-        }
+            // Paginate if page parameter is present
+            if ($request->has('page')) {
+                $perPage = $request->input('per_page', 6);
+                return $query->paginate($perPage);
+            }
 
-        return response()->json($query->get())->withHeaders([
-            'Cache-Control' => 'public, max-age=300', // Cache for 5 minutes
+            return $query->get();
+        });
+
+        return response()->json($projects)->withHeaders([
+            'Cache-Control' => 'public, max-age=60', // Cache for 1 minute (reduced for faster updates)
         ]);
     }
 
@@ -62,6 +67,9 @@ class ProjectController extends Controller
         }
 
         $project = Project::create($data);
+        
+        // Clear all project caches (including different query variations)
+        $this->clearProjectCaches();
 
         return response()->json($project, 201);
     }
@@ -87,6 +95,9 @@ class ProjectController extends Controller
         ]);
 
         $project->update($data);
+        
+        // Clear all project caches (including different query variations)
+        $this->clearProjectCaches();
 
         return response()->json($project->fresh());
     }
@@ -114,11 +125,18 @@ class ProjectController extends Controller
             }
 
             $project->delete();
+            
+            // Clear all project caches (including different query variations)
+            $this->clearProjectCaches();
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
+            $message = config('app.debug') 
+                ? 'Error deleting project: ' . $e->getMessage()
+                : 'Unable to delete the project. Please try again.';
+                
             return response()->json([
-                'message' => 'Error deleting project: ' . $e->getMessage(),
+                'message' => $message,
                 'error' => 'delete_failed'
             ], 500);
         }
@@ -188,7 +206,7 @@ class ProjectController extends Controller
                     $errorMessage = $messages[0];
                     // Make error messages more user-friendly
                     if (str_contains($errorMessage, 'may not be greater than') || str_contains($errorMessage, 'failed to upload')) {
-                        $errorMessage = "File size too large. Maximum allowed: {$maxAllowedMB}MB. Your PHP upload_max_filesize is set to " . ini_get('upload_max_filesize') . ". Please increase it in php.ini to allow larger files.";
+                        $errorMessage = "The image file is too large. Maximum allowed size is {$maxAllowedMB}MB. Please choose a smaller file.";
                     }
                     break;
                 }
@@ -200,8 +218,13 @@ class ProjectController extends Controller
                 'errors' => $errors,
             ], 422);
         } catch (\Exception $e) {
+            // Don't expose internal error details in production
+            $message = config('app.debug') 
+                ? 'Upload failed: ' . $e->getMessage()
+                : 'Upload failed. Please try again.';
+                
             return response()->json([
-                'message' => 'Upload failed: ' . $e->getMessage(),
+                'message' => $message,
                 'error' => 'upload_failed',
             ], 500);
         }
@@ -255,6 +278,24 @@ class ProjectController extends Controller
         
         if ($path && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
+        }
+    }
+
+    /**
+     * Clear all project-related caches.
+     */
+    private function clearProjectCaches(): void
+    {
+        // Clear cache for common query variations
+        cache()->forget('projects_' . md5('')); // No query params
+        cache()->forget('projects_' . md5('category=frontend'));
+        cache()->forget('projects_' . md5('category=backend'));
+        cache()->forget('projects_' . md5('category=fullstack'));
+        
+        // Also clear any paginated caches
+        for ($page = 1; $page <= 10; $page++) {
+            cache()->forget('projects_' . md5("page={$page}"));
+            cache()->forget('projects_' . md5("page={$page}&per_page=6"));
         }
     }
 }

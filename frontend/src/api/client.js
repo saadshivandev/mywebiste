@@ -28,11 +28,46 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling - convert to human-readable messages
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.message || error.message || 'An error occurred';
+    let message = 'Something went wrong. Please try again.';
+    
+    if (error.response) {
+      // Server responded with error
+      const data = error.response.data;
+      
+      // Use the message from the API if available
+      if (data?.message) {
+        message = data.message;
+      } else if (data?.errors) {
+        // Handle validation errors
+        const firstError = Object.values(data.errors)[0];
+        message = Array.isArray(firstError) ? firstError[0] : firstError;
+      } else {
+        // Map HTTP status codes to friendly messages
+        const statusMessages = {
+          400: 'Your request was invalid. Please check your input and try again.',
+          401: 'Please log in to continue.',
+          403: 'You do not have permission to perform this action.',
+          404: 'The requested resource was not found.',
+          405: 'This action is not allowed.',
+          422: 'Please check your input and try again.',
+          429: 'Too many requests. Please wait a moment and try again.',
+          500: 'Something went wrong on our end. Please try again later.',
+          503: 'The service is temporarily unavailable. Please try again later.',
+        };
+        message = statusMessages[error.response.status] || message;
+      }
+    } else if (error.request) {
+      // Request was made but no response received
+      message = 'Unable to connect to the server. Please check your internet connection and try again.';
+    } else {
+      // Something else happened
+      message = error.message || message;
+    }
+    
     return Promise.reject(new Error(message));
   }
 );

@@ -13,7 +13,9 @@ class ProfileController extends Controller
 {
     public function show(): JsonResponse
     {
-        $profile = Profile::first();
+        $profile = cache()->remember('profile_main', 300, function () {
+            return Profile::first();
+        });
 
         return response()
             ->json($profile)
@@ -35,6 +37,9 @@ class ProfileController extends Controller
 
         $profile = Profile::firstOrFail();
         $profile->update($validated);
+        
+        // Clear profile cache when updated
+        cache()->forget('profile_main');
 
         return response()->json($profile->fresh());
     }

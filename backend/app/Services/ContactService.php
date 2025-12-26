@@ -58,7 +58,7 @@ class ContactService
     // =========================================================================
 
     /**
-     * Send all notification emails for a new contact message.
+     * Send notification and auto-reply emails for new contact messages.
      */
     private function sendEmails(ContactMessage $contact): void
     {

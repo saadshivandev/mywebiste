@@ -18,8 +18,8 @@ class AuthController extends Controller
 
         if (! Auth::attempt($credentials)) {
             return response()->json([
-                'message' => 'Invalid credentials.',
-            ], 422);
+                'message' => 'The email or password you entered is incorrect. Please try again.',
+            ], 401);
         }
 
         /** @var \App\Models\User $user */

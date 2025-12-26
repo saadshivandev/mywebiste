@@ -54,8 +54,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { apiGet, apiPost } from './api/client';
+
+const router = useRouter();
+const route = useRoute();
 
 // Layout Components
 import TheHeader from './components/layout/TheHeader.vue';
@@ -98,38 +102,28 @@ const paginatedProjects = computed(() => {
 // Methods
 async function loadData() {
   try {
-    console.log('Loading data from API...');
-    const [profileRes, servicesRes, projectsRes, skillsRes] = await Promise.all([
-      apiGet('/profile').catch(err => {
-        console.error('Error loading profile:', err);
-        return null;
-      }),
-      apiGet('/services').catch(err => {
-        console.error('Error loading services:', err);
-        return [];
-      }),
-      apiGet('/projects').catch(err => {
-        console.error('Error loading projects:', err);
-        return [];
-      }),
-      apiGet('/skills').catch(err => {
-        console.error('Error loading skills:', err);
-        return [];
-      })
+    // Use Promise.allSettled for better error handling - doesn't fail if one request fails
+    // Add timestamp to bypass browser cache for projects
+    const timestamp = Date.now();
+    const results = await Promise.allSettled([
+      apiGet('/profile'),
+      apiGet('/services'),
+      apiGet(`/projects?t=${timestamp}`), // Cache busting for projects
+      apiGet('/skills')
     ]);
 
-    console.log('API Responses:', { profileRes, servicesRes, projectsRes, skillsRes });
+    // Extract results safely
+    profile.value = results[0].status === 'fulfilled' ? results[0].value : null;
+    services.value = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
+    allProjects.value = results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value : [];
+    skills.value = results[3].status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [];
 
-    profile.value = profileRes || null;
-    services.value = Array.isArray(servicesRes) ? servicesRes : [];
-    allProjects.value = Array.isArray(projectsRes) ? projectsRes : [];
-    skills.value = Array.isArray(skillsRes) ? skillsRes : [];
-
-    console.log('Data loaded:', {
-      profile: profile.value,
-      servicesCount: services.value.length,
-      projectsCount: allProjects.value.length,
-      skillsCount: skills.value.length
+    // Log any failures
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const endpoints = ['profile', 'services', 'projects', 'skills'];
+        console.warn(`Failed to load ${endpoints[index]}:`, result.reason);
+      }
     });
   } catch (error) {
     console.error('Failed to load initial data', error);
@@ -143,7 +137,15 @@ async function loadData() {
 
 function goToPage(page) {
   currentPage.value = page;
-  document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Navigate to projects section if not already there
+  if (route.path !== '/projects') {
+    router.push('/projects');
+  } else {
+    // If already on projects page, just scroll
+    setTimeout(() => {
+      document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
 }
 
 async function submitContact(formData) {
@@ -162,14 +164,29 @@ async function submitContact(formData) {
   }
 }
 
+// Track if we're programmatically navigating (to prevent Intersection Observer from interfering)
+const isNavigating = ref(false);
+
 // Intersection Observer for active section
 function setupIntersectionObserver() {
   const sections = ['home', 'about', 'services', 'projects', 'contact'];
+  
   const observer = new IntersectionObserver(
     (entries) => {
+      // Don't update URL if we're programmatically navigating
+      if (isNavigating.value) {
+        return;
+      }
+      
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
+          // Only update the active section for highlighting, don't change URL
           activeSection.value = entry.target.id;
+          // DISABLED: URL updates during scrolling to prevent scroll jumping
+          // const sectionRoute = entry.target.id === 'home' ? '/' : `/${entry.target.id}`;
+          // if (route.path !== sectionRoute) {
+          //   router.replace(sectionRoute);
+          // }
         }
       });
     },
@@ -184,11 +201,40 @@ function setupIntersectionObserver() {
   return observer;
 }
 
+// Watch route changes and scroll to section
+watch(() => route.path, (newPath, oldPath) => {
+  // Only scroll if route actually changed (not initial load)
+  if (oldPath !== undefined && newPath !== oldPath) {
+    isNavigating.value = true;
+    
+    if (newPath === '/') {
+      activeSection.value = 'home';
+    } else {
+      const sectionId = newPath.replace('/', '');
+      activeSection.value = sectionId;
+    }
+    
+    // Re-enable Intersection Observer after navigation completes
+    setTimeout(() => {
+      isNavigating.value = false;
+    }, 1000);
+  }
+});
+
 let observer = null;
 
 onMounted(() => {
   loadData();
   observer = setupIntersectionObserver();
+  
+  // Set initial active section based on route
+  // Router's scrollBehavior will handle scrolling
+  if (route.path !== '/') {
+    const sectionId = route.path.replace('/', '');
+    activeSection.value = sectionId;
+  } else {
+    activeSection.value = 'home';
+  }
 });
 
 onUnmounted(() => {
@@ -257,6 +303,11 @@ onUnmounted(() => {
 
 /* Smooth scrolling */
 html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent scroll jump on route changes */
+body {
   scroll-behavior: smooth;
 }
 </style>
